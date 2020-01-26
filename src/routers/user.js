@@ -3,6 +3,7 @@ const router = new express.Router();
 const User = require('../models/user');
 const auth = require('../middleware/authentication');
 const multer = require('multer');
+const sharp = require('sharp');
 
 // httpstatuses.com << refer to this site to check
 router.post('/users/login', async (req, res) => {
@@ -135,7 +136,11 @@ router.post(
   upload.single('avatar'),
   async (req, res) => {
     try {
-      req.user.avatar = req.file.buffer;
+      const buffer = await sharp(req.file.buffer)
+        .resize({ height: 250, width: 250 })
+        .png()
+        .toBuffer();
+      req.user.avatar = buffer;
       await req.user.save();
       res.send();
     } catch (err) {
@@ -154,6 +159,21 @@ router.delete('/users/me/avatar', auth, async (req, res) => {
     res.send();
   } catch (err) {
     res.status(500).send(err);
+  }
+});
+
+router.get('/users/:id/avatar', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user || !user.avatar) {
+      throw new Error('Image not found');
+    }
+
+    res.set('Content-Type', 'image/png');
+    res.send(user.avatar);
+  } catch (err) {
+    res.status(404).send();
   }
 });
 
